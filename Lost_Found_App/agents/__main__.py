@@ -13,14 +13,14 @@ if __name__ == "__main__":
     print(f"Classification: {classification}")
 
     if classification in ["LOST", "FOUND"]:
-        # extract
+        # extractor
         extracted = ExtractorAgent.extract_details(message, classification)
         print(f"Extracted Details: {extracted}")
 
         # Include status for matching
         extracted['status'] = classification
 
-        # match
+        # matcher
         matcher = MatcherAgent()
         match_result = matcher.match(extracted)
         print(f"Match Result: {match_result}")
