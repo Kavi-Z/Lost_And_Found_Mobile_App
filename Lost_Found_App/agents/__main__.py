@@ -16,8 +16,7 @@ if __name__ == "__main__":
         # extractor
         extracted = ExtractorAgent.extract_details(message, classification)
         print(f"Extracted Details: {extracted}")
-
-        # Include status for matching
+ 
         extracted['status'] = classification
 
         # matcher
