@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:lost_found/screens/auth/signup_screen.dart';
 import 'package:lost_found/widgets/custom_textfield.dart';
 import 'package:lost_found/widgets/custom_button.dart';
-import 'package:lost_found/widgets/loading_indicator.dart'; // import the loading indicator
+import 'package:lost_found/widgets/loading_indicator.dart';  
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:lost_found/screens/home/home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -104,14 +107,52 @@ class _LoginScreenState extends State<LoginScreen>
                           const SizedBox(height: 30),
 
                           CustomButton(
-                            text: "Login",
-                            onPressed: () async {
-                              setState(() => isLoading = true);
-                              await Future.delayed(const Duration(seconds: 1));
-                              setState(() => isLoading = false);
-                              // TODO: Add Firebase Auth login
-                            },
-                          ),
+  text: "Login",
+  onPressed: () async {
+    setState(() => isLoading = true);
+    try {
+      print("➡️ Attempting login...");
+
+      final email = emailController.text.trim();
+      final password = passwordController.text;
+
+      final cred = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(email: email, password: password);
+
+      print("✅ Login successful: ${cred.user?.email}");
+
+      final uid = cred.user?.uid;
+      if (uid != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .set({
+          'email': email,
+          'lastLogin': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+
+      print("🟢 Navigating to HomeScreen...");
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    } on FirebaseAuthException catch (e) {
+      print("❌ FirebaseAuth error: ${e.code} - ${e.message}");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? e.code)),
+      );
+    } catch (e) {
+      print("⚠️ Other error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      setState(() => isLoading = false);
+    }
+  },
+)
+,
 
                           const SizedBox(height: 20),
                           Row(

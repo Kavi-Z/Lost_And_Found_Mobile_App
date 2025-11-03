@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -106,8 +108,15 @@ class _SignupScreenState extends State<SignupScreen>
                               borderSide: const BorderSide(color: Colors.black),
                             ),
                           ),
-                          validator: (value) =>
-                              value!.isEmpty ? "Enter an email" : null,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return "Enter an email";
+                            }
+                            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                              return "Enter a valid email address";
+                            }
+                            return null;
+                          },
                         ),
                         const SizedBox(height: 20),
 
@@ -133,9 +142,18 @@ class _SignupScreenState extends State<SignupScreen>
                             ),
                           ),
                           obscureText: true,
-                          validator: (value) => value!.length < 6
-                              ? "Password too short"
-                              : null,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return "Enter a password";
+                            }
+                            if (value.length < 6) {
+                              return "Password must be at least 6 characters";
+                            }
+                            if (!RegExp(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$').hasMatch(value)) {
+                              return "Password must contain at least one letter and one number";
+                            }
+                            return null;
+                          },
                         ),
                         const SizedBox(height: 20),
 
@@ -169,20 +187,49 @@ class _SignupScreenState extends State<SignupScreen>
                         const SizedBox(height: 30),
 
                         ElevatedButton(
-                          onPressed: () {
+                          onPressed: () async {
                             if (_formKey.currentState!.validate()) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                      "Account created successfully!"),
-                                  backgroundColor: Colors.black,
-                                ),
-                              );
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => const LoginScreen()),
-                              );
+                              final email = _emailController.text.trim();
+                              final password = _passwordController.text;
+                              try {
+                                final cred = await FirebaseAuth.instance
+                                    .createUserWithEmailAndPassword(
+                                        email: email, password: password);
+
+                                final uid = cred.user?.uid;
+                                if (uid != null) {
+                                  await FirebaseFirestore.instance
+                                      .collection('users')
+                                      .doc(uid)
+                                      .set({
+                                    'email': email,
+                                    'createdAt': FieldValue.serverTimestamp(),
+                                  });
+                                }
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Account created successfully!"),
+                                    backgroundColor: Colors.black,
+                                  ),
+                                );
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const LoginScreen()),
+                                );
+                              } on FirebaseAuthException catch (e) {
+                                // Log full error for web console debugging (shows server error details)
+                                // This helps track down 400 responses coming from the REST API.
+                                debugPrint('FirebaseAuthException code=${e.code} message=${e.message}');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(e.message ?? e.code)),
+                                );
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(e.toString())),
+                                );
+                              }
                             }
                           },
                           style: ElevatedButton.styleFrom(
