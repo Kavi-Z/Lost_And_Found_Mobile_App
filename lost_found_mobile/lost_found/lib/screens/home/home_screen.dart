@@ -10,7 +10,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController itemNameController = TextEditingController();
-  String itemType = "Lost"; // Lost or Found
+  String itemType = "Lost";  
 
   Future<void> addItem() async {
     final itemName = itemNameController.text.trim();
@@ -29,8 +29,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Lost & Found"),
-        backgroundColor: Colors.blueAccent,
+        title: const Text("Lost & Found",style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.black,
       ),
       body: Column(
         children: [
@@ -66,10 +66,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ElevatedButton(
                   onPressed: addItem,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
+                    backgroundColor: Colors.black,
                     minimumSize: const Size(double.infinity, 48),
                   ),
-                  child: const Text("Add Item"),
+                  child: const Text("Add Item",style: TextStyle(color: Colors.white)),
+
                 ),
               ],
             ),
