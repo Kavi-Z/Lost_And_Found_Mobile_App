@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class AddItemScreen extends StatefulWidget {
-  final String type; // 'lost' or 'found'
+  final String type;  
   const AddItemScreen({super.key, required this.type});
 
   @override
