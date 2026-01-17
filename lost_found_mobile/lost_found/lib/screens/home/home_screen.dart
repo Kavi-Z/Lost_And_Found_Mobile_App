@@ -70,18 +70,34 @@ class HomeScreen extends StatelessWidget {
           .orderBy('timestamp', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
+        // Handle loading state
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          );
         }
 
-        final items = snapshot.data!.docs;
+        // Handle error state
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Center(
+              child: Text('Error loading items: ${snapshot.error}'),
+            ),
+          );
+        }
 
-        if (items.isEmpty) {
+        // Handle no data
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return const Padding(
             padding: EdgeInsets.all(16),
             child: Text("No items available"),
           );
         }
+
+        final items = snapshot.data!.docs;
+        print('Loaded ${items.length} $type items');
 
         return GridView.builder(
           shrinkWrap: true,
@@ -94,6 +110,8 @@ class HomeScreen extends StatelessWidget {
           itemBuilder: (context, index) {
             final item = items[index];
             final imageUrl = item['imageUrl'] ?? '';
+            
+            print('Item: ${item['name']}, URL: $imageUrl');
 
             return GestureDetector(
               onTap: () {
@@ -115,6 +133,33 @@ class HomeScreen extends StatelessWidget {
                           ? Image.network(
                               imageUrl,
                               fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                print('Image load error: $error');
+                                return Container(
+                                  color: Colors.grey[300],
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.broken_image, size: 50),
+                                      const SizedBox(height: 8),
+                                      Text('Error loading image',
+                                          style: TextStyle(
+                                              fontSize: 10,
+                                              color: Colors.grey[600]),
+                                          textAlign: TextAlign.center),
+                                    ],
+                                  ),
+                                );
+                              },
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Container(
+                                  color: Colors.grey[300],
+                                  child: const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                );
+                              },
                             )
                           : Container(
                               color: Colors.grey[300],
