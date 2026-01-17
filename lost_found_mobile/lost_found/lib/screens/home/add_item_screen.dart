@@ -31,31 +31,87 @@ class _AddItemScreenState extends State<AddItemScreen> {
   }
 
   Future<String> uploadImage() async {
-    final ref = FirebaseStorage.instance
-        .ref('items/${DateTime.now().millisecondsSinceEpoch}.jpg');
+    try {
+      // Use separate folders for Lost and Found items
+      final folder = widget.type == 'Lost' ? 'lost_items' : 'found_items';
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final ref = FirebaseStorage.instance.ref('$folder/$fileName');
 
-    await ref.putData(imageBytes!);
-    return await ref.getDownloadURL();
+      print('Uploading to: $folder/$fileName');
+      await ref.putData(imageBytes!);
+      final downloadURL = await ref.getDownloadURL();
+      print('Upload successful: $downloadURL');
+      return downloadURL;
+    } catch (e) {
+      print('Upload error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $e')),
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<void> submitItem() async {
-    if (nameController.text.isEmpty || imageBytes == null) return;
+    // Check if user is authenticated
+    final user = FirebaseAuth.instance.currentUser;
+    print('Current user: ${user?.email ?? "No user"}');
+    
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in first')),
+        );
+      }
+      return;
+    }
+
+    if (nameController.text.isEmpty || imageBytes == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please fill all fields')),
+        );
+      }
+      return;
+    }
 
     setState(() => loading = true);
 
-    final imageUrl = await uploadImage();
+    try {
+      // Step 1: Upload image
+      print('Uploading image...');
+      final imageUrl = await uploadImage();
+      print('Image uploaded: $imageUrl');
 
-    await FirebaseFirestore.instance.collection('items').add({
-      'name': nameController.text.trim(),
-      'description': descController.text.trim(),
-      'phone': phoneController.text.trim(),
-      'type': widget.type,
-      'imageUrl': imageUrl,
-      'userId': FirebaseAuth.instance.currentUser!.uid,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
+      // Step 2: Save to Firestore
+      print('Saving to Firestore...');
+      final docRef = await FirebaseFirestore.instance.collection('items').add({
+        'name': nameController.text.trim(),
+        'description': descController.text.trim(),
+        'phone': phoneController.text.trim(),
+        'type': widget.type,
+        'imageUrl': imageUrl,
+        'userId': user.uid,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+      print('Saved to Firestore with ID: ${docRef.id}');
 
-    Navigator.pop(context);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Item added successfully!')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      print('Submit error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+      setState(() => loading = false);
+    }
   }
 
   @override
