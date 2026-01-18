@@ -47,6 +47,7 @@ class DefaultFirebaseOptions {
     projectId: 'lost-found-proj2',
     authDomain: 'lost-found-proj2.firebaseapp.com',
     storageBucket: 'lost-found-proj2.firebasestorage.app',
+    databaseURL: 'https://lost-found-proj2.firebaseio.com',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -55,6 +56,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '79958094131',
     projectId: 'lost-found-proj2',
     storageBucket: 'lost-found-proj2.firebasestorage.app',
+    databaseURL: 'https://lost-found-proj2.firebaseio.com',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
@@ -64,6 +66,7 @@ class DefaultFirebaseOptions {
     projectId: 'lost-found-proj2',
     storageBucket: 'lost-found-proj2.firebasestorage.app',
     iosBundleId: 'com.example.lostFound',
+    databaseURL: 'https://lost-found-proj2.firebaseio.com',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -73,6 +76,7 @@ class DefaultFirebaseOptions {
     projectId: 'lost-found-proj2',
     storageBucket: 'lost-found-proj2.firebasestorage.app',
     iosBundleId: 'com.example.lostFound',
+    databaseURL: 'https://lost-found-proj2.firebaseio.com',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
@@ -82,5 +86,6 @@ class DefaultFirebaseOptions {
     projectId: 'lost-found-proj2',
     authDomain: 'lost-found-proj2.firebaseapp.com',
     storageBucket: 'lost-found-proj2.firebasestorage.app',
+    databaseURL: 'https://lost-found-proj2.firebaseio.com',
   );
 }
