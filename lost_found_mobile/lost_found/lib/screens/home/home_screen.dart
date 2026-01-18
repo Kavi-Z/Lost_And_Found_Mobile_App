@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'add_item_screen.dart';
 import 'item_details_screen.dart';
+import 'profile_screen.dart';
+import 'privacy_policy.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -135,15 +137,13 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
-
-  // --- Profile Screen ---
+ 
   Widget _buildProfileScreen() {
-    return const Center(child: Text("Profile Screen"));
+    return const ProfileSection();
   }
-
-  // --- Privacy Screen ---
+ 
   Widget _buildPrivacyScreen() {
-    return const Center(child: Text("Privacy Screen"));
+    return PrivacyPolicyPage();
   }
 
   Widget _sectionTitle(String title) {
