@@ -17,6 +17,10 @@ dependencies:
   firebase_core: ^3.15.2
   firebase_auth: ^5.1.0
   cloud_firestore: ^5.4.2
+  url_launcher: ^6.2.0
+
+  # Image caching
+  cached_network_image: ^3.3.0
 
   # Other dependencies
   cupertino_icons: ^1.0.2
