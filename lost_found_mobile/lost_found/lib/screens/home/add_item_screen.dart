@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:toastification/toastification.dart';
 
 class AddItemScreen extends StatefulWidget {
   final String type;
@@ -39,7 +40,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
     }
   }
 
-  Future<String> uploadImage() async {
+Future<String> uploadImage() async {
     try {
       final folder = widget.type == 'Lost' ? 'lost_items' : 'found_items';
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
@@ -50,13 +51,23 @@ class _AddItemScreenState extends State<AddItemScreen> {
       return downloadURL;
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Upload failed: $e'),
-            backgroundColor: Colors.grey[900],
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          style: ToastificationStyle.flat,
+          title: const Text("Upload Failed"),
+          description: Text("Could not upload image: $e"),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 4),
+          borderRadius: BorderRadius.circular(12.0),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x07000000),
+              blurRadius: 16,
+              offset: Offset(0, 16),
+              spreadRadius: 0,
+            )
+          ],
         );
       }
       rethrow;
@@ -68,28 +79,35 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
     final user = FirebaseAuth.instance.currentUser;
 
+    // 1. Check User Login
     if (user == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Please log in first'),
-            backgroundColor: Colors.grey[900],
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+        toastification.show(
+          context: context,
+          type: ToastificationType.warning,
+          style: ToastificationStyle.fillColored,
+          title: const Text("Authentication Required"),
+          description: const Text("Please log in to submit an item."),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 4),
+          icon: const Icon(Icons.lock_outline),
+          borderRadius: BorderRadius.circular(12),
         );
       }
       return;
     }
 
+    // 2. Check Image Selection
     if (imageBytes == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select an image'),
-          backgroundColor: Colors.grey[900],
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+      toastification.show(
+        context: context,
+        type: ToastificationType.info,
+        style: ToastificationStyle.flat,
+        title: const Text("Image Missing"),
+        description: const Text("Please select an image to continue."),
+        alignment: Alignment.topRight,
+        autoCloseDuration: const Duration(seconds: 3),
+        borderRadius: BorderRadius.circular(12),
       );
       return;
     }
@@ -110,25 +128,44 @@ class _AddItemScreenState extends State<AddItemScreen> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Item added successfully!'),
-            backgroundColor: Colors.grey[900],
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+        setState(() => loading = false);
+
+        // 3. Success Notification
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          style: ToastificationStyle.flat,
+          title: const Text("Success"),
+          description: const Text("Item added successfully!"),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 3),
+          primaryColor: Colors.green,
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          borderRadius: BorderRadius.circular(12),
+          showProgressBar: true,
+          closeButtonShowType: CloseButtonShowType.onHover,
         );
-        Navigator.pop(context);
+
+        // Slight delay for visual effect
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        if (mounted) {
+          Navigator.pop(context);
+        }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.grey[900],
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+        // 4. Error Notification
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          style: ToastificationStyle.flat,
+          title: const Text("Submission Failed"),
+          description: Text("An error occurred: $e"),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 4),
+          borderRadius: BorderRadius.circular(12),
         );
       }
       setState(() => loading = false);
