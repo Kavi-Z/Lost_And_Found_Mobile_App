@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'add_item_screen.dart';
-import 'item_details_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,17 +13,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-
-  // Helper to toggle status
-  Future<void> _toggleItemStatus(DocumentSnapshot item) async {
-    final data = item.data() as Map<String, dynamic>;
-    final bool currentStatus = data['isResolved'] ?? false;
-
-    await FirebaseFirestore.instance
-        .collection('items')
-        .doc(item.id)
-        .update({'isResolved': !currentStatus});
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -492,15 +480,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _itemsHorizontalList(String type, BuildContext context) {
-    final currentUser = FirebaseAuth.instance.currentUser;
-
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('items')
-          .where('type', isEqualTo: type)
-          .orderBy('timestamp', descending: true)
-          .snapshots(),
+    final folderName = type == 'Lost' ? 'lost_items' : 'found_items';
+    
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _fetchImagesFromStorage(folderName),
       builder: (context, snapshot) {
+        print('Storage Fetch - Connection State: ${snapshot.connectionState}');
+        
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Padding(
             padding: EdgeInsets.symmetric(horizontal: 24),
@@ -514,18 +500,22 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         if (snapshot.hasError) {
+          print('Storage Error: ${snapshot.error}');
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Center(
               child: Text(
-                'Error loading items',
+                'Error loading images: ${snapshot.error}',
                 style: TextStyle(color: Colors.grey[600]),
               ),
             ),
           );
         }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        final items = snapshot.data ?? [];
+        
+        if (items.isEmpty) {
+          print('No items found in Storage for: $folderName');
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Container(
@@ -553,7 +543,7 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
 
-        final items = snapshot.data!.docs;
+        print('Fetched ${items.length} images from Storage for: $folderName');
 
         return SizedBox(
           height: 240,
@@ -563,20 +553,11 @@ class _HomeScreenState extends State<HomeScreen> {
             itemCount: items.length,
             itemBuilder: (context, index) {
               final item = items[index];
-              final data = item.data() as Map<String, dynamic>;
-              final imageUrl = data['imageUrl'] ?? '';
-              
-              final bool isResolved = data['isResolved'] ?? false;
-              final bool isOwner = currentUser?.uid == data['userId'];
+              final imageUrl = item['imageUrl'] ?? '';
 
               return GestureDetector(
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ItemDetailsScreen(item: item),
-                    ),
-                  );
+                  // Handle tap
                 },
                 child: Container(
                   width: 180,
@@ -592,83 +573,48 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            ClipRRect(
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(14),
-                              ),
-                              child: imageUrl.isNotEmpty
-                                  ? CachedNetworkImage(
-                                      imageUrl: imageUrl,
-                                      fit: BoxFit.cover,
-                                      placeholder: (context, url) => Container(
-                                        color: Colors.grey[100],
-                                        child: Center(
-                                          child: CircularProgressIndicator(
-                                            color: Colors.grey[400],
-                                            strokeWidth: 2,
-                                          ),
-                                        ),
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(14),
+                          ),
+                          child: imageUrl.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: imageUrl,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => Container(
+                                    color: Colors.grey[100],
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        color: Colors.grey[400],
+                                        strokeWidth: 2,
                                       ),
-                                      errorWidget: (context, url, error) {
-                                        return Container(
-                                          color: Colors.grey[100],
-                                          child: Icon(
-                                            Icons.broken_image_outlined,
-                                            size: 40, 
-                                            color: Colors.grey[400]
-                                          ),
-                                        );
-                                      },
-                                    )
-                                  : Container(
-                                      color: Colors.grey[100],
-                                      child: Icon(
-                                        Icons.image_outlined,
-                                        size: 50, 
-                                        color: Colors.grey[400]
-                                      ),
-                                    ),
-                            ),
-
-                            if (isResolved || isOwner)
-                              Positioned(
-                                top: 8,
-                                right: 8,
-                                child: GestureDetector(
-                                  onTap: isOwner ? () => _toggleItemStatus(item) : null,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: isResolved 
-                                          ? Colors.green 
-                                          : Colors.black.withOpacity(0.5),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.white,
-                                        width: 2,
-                                      ),
-                                    ),
-                                    child: Icon(
-                                      Icons.check,
-                                      size: 16,
-                                      color: isResolved 
-                                          ? Colors.white 
-                                          : Colors.white.withOpacity(0.5),
                                     ),
                                   ),
+                                  errorWidget: (context, url, error) {
+                                    return Container(
+                                      color: Colors.grey[100],
+                                      child: Icon(
+                                        Icons.broken_image_outlined,
+                                        size: 40,
+                                        color: Colors.grey[400],
+                                      ),
+                                    );
+                                  },
+                                )
+                              : Container(
+                                  color: Colors.grey[100],
+                                  child: Icon(
+                                    Icons.image_outlined,
+                                    size: 50,
+                                    color: Colors.grey[400],
+                                  ),
                                 ),
-                              ),
-
-                          ],
                         ),
                       ),
                       Padding(
                         padding: const EdgeInsets.all(12),
                         child: Text(
-                          data['name'] ?? 'Item',
+                          item['name'] ?? 'Item',
                           textAlign: TextAlign.left,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -688,5 +634,42 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchImagesFromStorage(String folderName) async {
+    try {
+      final items = <Map<String, dynamic>>[];
+      
+      // List all files in the folder
+      final result = await FirebaseStorage.instance.ref(folderName).listAll();
+      
+      print('Found ${result.items.length} files in $folderName');
+      
+      // Generate download URLs for each file
+      for (var file in result.items) {
+        try {
+          final downloadUrl = await file.getDownloadURL();
+          items.add({
+            'imageUrl': downloadUrl,
+            'name': file.name,
+            'fullPath': file.fullPath,
+            'metadata': {
+              'name': file.name,
+            }
+          });
+          print('Loaded image: ${file.name} - $downloadUrl');
+        } catch (e) {
+          print('Error getting download URL for ${file.name}: $e');
+        }
+      }
+      
+      // Sort by date (newest first) - using filename timestamp
+      items.sort((a, b) => b['name'].compareTo(a['name']));
+      
+      return items;
+    } catch (e) {
+      print('Error fetching from Storage: $e');
+      throw Exception('Failed to fetch images: $e');
+    }
   }
 }
