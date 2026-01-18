@@ -18,6 +18,7 @@ dependencies:
   firebase_auth: ^5.1.0
   cloud_firestore: ^5.4.2
   url_launcher: ^6.2.0
+  toastification: ^3.0.3
 
   # Image caching
   cached_network_image: ^3.3.0

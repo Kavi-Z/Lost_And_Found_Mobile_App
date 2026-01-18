@@ -15,12 +15,28 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
+  // Helper to toggle status
+  Future<void> _toggleItemStatus(DocumentSnapshot item) async {
+    final data = item.data() as Map<String, dynamic>;
+    final bool currentStatus = data['isResolved'] ?? false;
+
+    await FirebaseFirestore.instance
+        .collection('items')
+        .doc(item.id)
+        .update({'isResolved': !currentStatus});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: _selectedIndex == 0 ? _buildHomeContent() : _buildProfileContent(),
+        // UPDATED: Logic to switch between 3 screens
+        child: _selectedIndex == 0 
+            ? _buildHomeContent() 
+            : _selectedIndex == 1 
+                ? _buildProfileContent()
+                : _buildPrivacyContent(),
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
@@ -35,18 +51,94 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNavItem(Icons.home_outlined, Icons.home, 'Home', 0),
                 _buildNavItem(Icons.person_outline, Icons.person, 'Profile', 1),
+                // UPDATED: Added Privacy Policy Icon
+                _buildNavItem(Icons.privacy_tip_outlined, Icons.privacy_tip, 'Privacy', 2),
               ],
             ),
           ),
         ),
       ),
-      
+    );
+  }
+
+  // --- NEW: Privacy Policy Screen Content ---
+  Widget _buildPrivacyContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 20),
+          const Text(
+            'Privacy Policy',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 32),
+          
+          _buildPrivacySection(
+            'Data Collection',
+            'We collect information you provide directly to us when you create an account, report a lost item, or update your profile. This includes your name, email, and phone number.',
+          ),
+          _buildPrivacySection(
+            'How We Use Data',
+            'We use your contact information solely to facilitate the connection between people who have lost items and those who have found them.',
+          ),
+          _buildPrivacySection(
+            'Image Privacy',
+            'Images uploaded to the platform are public to help identify lost items. Please do not upload sensitive personal documents.',
+          ),
+          _buildPrivacySection(
+            'Contact Visibility',
+            'Your phone number is visible to other users only when you explicitly list it on a lost or found item report.',
+          ),
+          
+          const SizedBox(height: 40),
+          Center(
+            child: Text(
+              'Last updated: Jan 2026',
+              style: TextStyle(color: Colors.grey[400], fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPrivacySection(String title, String content) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            content,
+            style: TextStyle(
+              fontSize: 15,
+              height: 1.5,
+              color: Colors.grey[700],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -55,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: () => setState(() => _selectedIndex = index),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected ? Colors.black : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
@@ -74,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
-                  fontSize: 15,
+                  fontSize: 14, // Slightly smaller to fit 3 items
                 ),
               ),
             ],
@@ -83,6 +175,9 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  // ... (Keep existing _showAddItemSheet, _buildSheetButton, _buildHomeContent, _buildProfileContent, _sectionTitle, _itemsHorizontalList, _itemsGrid) ...
+  // Paste the rest of your existing functions below this line:
 
   void _showAddItemSheet(BuildContext context) {
     showModalBottomSheet(
@@ -397,6 +492,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _itemsHorizontalList(String type, BuildContext context) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('items')
@@ -466,7 +563,11 @@ class _HomeScreenState extends State<HomeScreen> {
             itemCount: items.length,
             itemBuilder: (context, index) {
               final item = items[index];
-              final imageUrl = item['imageUrl'] ?? '';
+              final data = item.data() as Map<String, dynamic>;
+              final imageUrl = data['imageUrl'] ?? '';
+              
+              final bool isResolved = data['isResolved'] ?? false;
+              final bool isOwner = currentUser?.uid == data['userId'];
 
               return GestureDetector(
                 onTap: () {
@@ -491,55 +592,83 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(14),
-                          ),
-                          child: imageUrl.isNotEmpty
-                              ? CachedNetworkImage(
-                                  imageUrl: imageUrl,
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) => Container(
-                                    color: Colors.grey[100],
-                                    child: Center(
-                                      child: CircularProgressIndicator(
-                                        color: Colors.grey[400],
-                                        strokeWidth: 2,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            ClipRRect(
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(14),
+                              ),
+                              child: imageUrl.isNotEmpty
+                                  ? CachedNetworkImage(
+                                      imageUrl: imageUrl,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => Container(
+                                        color: Colors.grey[100],
+                                        child: Center(
+                                          child: CircularProgressIndicator(
+                                            color: Colors.grey[400],
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      ),
+                                      errorWidget: (context, url, error) {
+                                        return Container(
+                                          color: Colors.grey[100],
+                                          child: Icon(
+                                            Icons.broken_image_outlined,
+                                            size: 40, 
+                                            color: Colors.grey[400]
+                                          ),
+                                        );
+                                      },
+                                    )
+                                  : Container(
+                                      color: Colors.grey[100],
+                                      child: Icon(
+                                        Icons.image_outlined,
+                                        size: 50, 
+                                        color: Colors.grey[400]
                                       ),
                                     ),
-                                  ),
-                                  errorWidget: (context, url, error) {
-                                    return Container(
-                                      color: Colors.grey[100],
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.broken_image_outlined,
-                                              size: 40, color: Colors.grey[400]),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            'Image error',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.grey[500],
-                                            ),
-                                          ),
-                                        ],
+                            ),
+
+                            if (isResolved || isOwner)
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: GestureDetector(
+                                  onTap: isOwner ? () => _toggleItemStatus(item) : null,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: isResolved 
+                                          ? Colors.green 
+                                          : Colors.black.withOpacity(0.5),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 2,
                                       ),
-                                    );
-                                  },
-                                )
-                              : Container(
-                                  color: Colors.grey[100],
-                                  child: Icon(Icons.image_outlined,
-                                      size: 50, color: Colors.grey[400]),
+                                    ),
+                                    child: Icon(
+                                      Icons.check,
+                                      size: 16,
+                                      color: isResolved 
+                                          ? Colors.white 
+                                          : Colors.white.withOpacity(0.5),
+                                    ),
+                                  ),
                                 ),
+                              ),
+
+                          ],
                         ),
                       ),
                       Padding(
                         padding: const EdgeInsets.all(12),
                         child: Text(
-                          item['name'],
+                          data['name'] ?? 'Item',
                           textAlign: TextAlign.left,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -556,168 +685,6 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-        );
-      },
-    );
-  }
-
-  Widget _itemsGrid(String type, BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('items')
-          .where('type', isEqualTo: type)
-          .orderBy('timestamp', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(
-              child: CircularProgressIndicator(
-                color: Colors.black,
-                strokeWidth: 2,
-              ),
-            ),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return Padding(
-            padding: const EdgeInsets.all(24),
-            child: Center(
-              child: Text(
-                'Error loading items',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-            ),
-          );
-        }
-
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.all(24),
-            child: Center(
-              child: Column(
-                children: [
-                  Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[300]),
-                  const SizedBox(height: 12),
-                  Text(
-                    "No items yet",
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        final items = snapshot.data!.docs;
-
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          itemCount: items.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.75,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemBuilder: (context, index) {
-            final item = items[index];
-            final imageUrl = item['imageUrl'] ?? '';
-
-            return GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ItemDetailsScreen(item: item),
-                  ),
-                );
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey[200]!, width: 1.5),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(14),
-                        ),
-                        child: imageUrl.isNotEmpty
-                            ? Image.network(
-                                imageUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    color: Colors.grey[100],
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.broken_image_outlined,
-                                            size: 40, color: Colors.grey[400]),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'Image error',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.grey[500],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Container(
-                                    color: Colors.grey[100],
-                                    child: Center(
-                                      child: CircularProgressIndicator(
-                                        color: Colors.grey[400],
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              )
-                            : Container(
-                                color: Colors.grey[100],
-                                child: Icon(Icons.image_outlined,
-                                    size: 50, color: Colors.grey[400]),
-                              ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Text(
-                        item['name'],
-                        textAlign: TextAlign.left,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          height: 1.3,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
         );
       },
     );
