@@ -5,7 +5,6 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:toastification/toastification.dart';
-
 class AddItemScreen extends StatefulWidget {
   final String type;
   const AddItemScreen({super.key, required this.type});
@@ -96,8 +95,7 @@ Future<String> uploadImage() async {
       }
       return;
     }
-
-    // 2. Check Image Selection
+ 
     if (imageBytes == null) {
       toastification.show(
         context: context,
@@ -116,6 +114,9 @@ Future<String> uploadImage() async {
 
     try {
       final imageUrl = await uploadImage();
+      
+      // Debug: Print imageUrl to verify upload was successful
+      print('Uploaded Image URL: $imageUrl');
 
       await FirebaseFirestore.instance.collection('items').add({
         'name': nameController.text.trim(),
@@ -126,11 +127,13 @@ Future<String> uploadImage() async {
         'userId': user.uid,
         'timestamp': Timestamp.now(),
       });
+      
+      // Debug: Confirm data saved
+      print('Item saved to Firestore with imageUrl: $imageUrl');
 
       if (mounted) {
         setState(() => loading = false);
-
-        // 3. Success Notification
+ 
         toastification.show(
           context: context,
           type: ToastificationType.success,
@@ -146,9 +149,8 @@ Future<String> uploadImage() async {
           showProgressBar: true,
           closeButtonShowType: CloseButtonShowType.onHover,
         );
-
-        // Slight delay for visual effect
-        await Future.delayed(const Duration(milliseconds: 500));
+ 
+        await Future.delayed(const Duration(milliseconds: 800));
 
         if (mounted) {
           Navigator.pop(context);
@@ -156,7 +158,7 @@ Future<String> uploadImage() async {
       }
     } catch (e) {
       if (mounted) {
-        // 4. Error Notification
+        
         toastification.show(
           context: context,
           type: ToastificationType.error,
