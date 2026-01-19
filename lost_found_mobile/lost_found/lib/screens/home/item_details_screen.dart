@@ -6,16 +6,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:toastification/toastification.dart';
 import 'update_item.dart';
 
-class ItemDetailsScreen extends StatefulWidget {
+class ItemDetailsScreen extends StatelessWidget {
   final QueryDocumentSnapshot item;
   const ItemDetailsScreen({super.key, required this.item});
-
-  @override
-  State<ItemDetailsScreen> createState() => _ItemDetailsScreenState();
-}
-
-class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
-  bool isOwnerTicked = false;
 
   Future<void> _makePhoneCall(String phoneNumber) async {
     final Uri phoneUri = Uri(scheme: 'tel', path: phoneNumber);
@@ -24,61 +17,68 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
     }
   }
 
-  /// Password confirmation for edit
-  Future<bool> _reauthenticateUser(BuildContext context, String email) async {
-    final TextEditingController passwordController = TextEditingController();
+  Future<bool> _verifyPassword(BuildContext context) async {
+  final TextEditingController passwordController = TextEditingController();
+  final user = FirebaseAuth.instance.currentUser;
 
-    return await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            title: const Text('Confirm Password'),
-            content: TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Password'),
+  if (user == null || user.email == null) return false;
+
+  return await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('Confirm Password'),
+          content: TextField(
+            controller: passwordController,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: 'Password',
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  try {
-                    final user = FirebaseAuth.instance.currentUser!;
-                    final credential = EmailAuthProvider.credential(
-                      email: email,
-                      password: passwordController.text.trim(),
-                    );
-                    await user.reauthenticateWithCredential(credential);
-                    Navigator.pop(context, true);
-                  } catch (_) {
-                    Navigator.pop(context, false);
-                    toastification.show(
-                      context: context,
-                      type: ToastificationType.error,
-                      style: ToastificationStyle.flat,
-                      alignment: Alignment.topRight,
-                      title: const Text('Authentication Failed'),
-                      description: const Text('Incorrect password'),
-                    );
-                  }
-                },
-                child: const Text('Confirm'),
-              ),
-            ],
           ),
-        ) ??
-        false;
-  }
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  final credential = EmailAuthProvider.credential(
+                    email: user.email!,
+                    password: passwordController.text.trim(),
+                  );
 
-  /// Owner verification modal for phone + NIC
-  Future<void> _ownerVerification() async {
-    final TextEditingController phoneController = TextEditingController();
+                  await user.reauthenticateWithCredential(credential);
+                  Navigator.pop(context, true);
+                } catch (_) {
+                  toastification.show(
+                    context: context,
+                    type: ToastificationType.error,
+                    style: ToastificationStyle.flat,
+                    title: const Text('Authentication Failed'),
+                    description: const Text('Incorrect password'),
+                    alignment: Alignment.topRight,
+                    autoCloseDuration: const Duration(seconds: 3),
+                  );
+                  Navigator.pop(context, false);
+                }
+              },
+              child: const Text('Verify'),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+}
+
+
+  /// Owner info modal before edit to enter phone + NIC (for storing)
+  Future<Map<String, String>?> _enterOwnerInfo(BuildContext context) async {
+    final TextEditingController phoneController =
+        TextEditingController(text: item['phone'] ?? '');
     final TextEditingController nicController = TextEditingController();
 
-    final result = await showModalBottomSheet<bool>(
+    return await showModalBottomSheet<Map<String, String>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
@@ -97,18 +97,19 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Owner Verification',
+              'Owner Info',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             Text(
-              'Please enter your phone number and NIC to confirm ownership.',
+              'Enter your phone number and NIC. This info will be stored for future inquiries.',
               style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             ),
             const SizedBox(height: 24),
             TextField(
               controller: phoneController,
               keyboardType: TextInputType.phone,
+              maxLength: 10,
               decoration: InputDecoration(
                 labelText: 'Phone Number',
                 filled: true,
@@ -117,11 +118,14 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
                 ),
+                counterText: '',
               ),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: nicController,
+              keyboardType: TextInputType.number,
+              maxLength: 12,
               decoration: InputDecoration(
                 labelText: 'NIC Number',
                 filled: true,
@@ -130,6 +134,7 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
                 ),
+                counterText: '',
               ),
             ),
             const SizedBox(height: 24),
@@ -137,67 +142,275 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
               width: double.infinity,
               height: 54,
               child: ElevatedButton(
-                onPressed: () async {
-                  if (phoneController.text.isEmpty || nicController.text.isEmpty) {
+                onPressed: () {
+                  if (phoneController.text.trim().isEmpty ||
+                      nicController.text.trim().isEmpty) {
                     toastification.show(
                       context: context,
                       type: ToastificationType.error,
                       style: ToastificationStyle.flat,
                       title: const Text('Error'),
-                      description:
-                          const Text('Please enter both phone number and NIC'),
+                      description: const Text(
+                          'Please enter both phone number and NIC'),
                       alignment: Alignment.topRight,
+                      autoCloseDuration: const Duration(seconds: 3),
                     );
                     return;
                   }
-
-                  // Store phone + NIC and mark item as "founded" in DB
-                  await FirebaseFirestore.instance
-                      .collection(widget.item.reference.parent.id)
-                      .doc(widget.item.id)
-                      .update({
-                    'ownerPhone': phoneController.text.trim(),
-                    'ownerNIC': nicController.text.trim(),
-                    'founded': true,
+                  
+                  if (phoneController.text.trim().length > 10) {
+                    toastification.show(
+                      context: context,
+                      type: ToastificationType.error,
+                      style: ToastificationStyle.flat,
+                      title: const Text('Error'),
+                      description: const Text('Phone number must be max 10 digits'),
+                      alignment: Alignment.topRight,
+                      autoCloseDuration: const Duration(seconds: 3),
+                    );
+                    return;
+                  }
+                  
+                  if (nicController.text.trim().length > 12) {
+                    toastification.show(
+                      context: context,
+                      type: ToastificationType.error,
+                      style: ToastificationStyle.flat,
+                      title: const Text('Error'),
+                      description: const Text('NIC must be max 12 digits'),
+                      alignment: Alignment.topRight,
+                      autoCloseDuration: const Duration(seconds: 3),
+                    );
+                    return;
+                  }
+                  
+                  Navigator.pop(context, {
+                    'phone': phoneController.text.trim(),
+                    'nic': nicController.text.trim(),
                   });
-
-                  toastification.show(
-                    context: context,
-                    type: ToastificationType.success,
-                    style: ToastificationStyle.flat,
-                    title: const Text('Verified'),
-                    description: const Text('Item marked as founded'),
-                    alignment: Alignment.topRight,
-                    autoCloseDuration: const Duration(seconds: 3),
-                  );
-
-                  setState(() => isOwnerTicked = true);
-                  Navigator.pop(context, true);
                 },
-                child: const Text('Submit'),
+                child: const Text('Continue'),
               ),
             ),
+            const SizedBox(height: 16),
           ],
         ),
       ),
     );
+  }
 
-    if (result == true) {
-      setState(() => isOwnerTicked = true);
+  /// Finder info modal for marking item as found
+  Future<Map<String, String>?> _enterFinderInfo(BuildContext context) async {
+    final TextEditingController phoneController = TextEditingController();
+    final TextEditingController nicController = TextEditingController();
+
+    return await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 24,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Finder Information',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please provide the finder\'s phone number and NIC to mark this item as found.',
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              maxLength: 10,
+              decoration: InputDecoration(
+                labelText: 'Finder\'s Phone Number',
+                filled: true,
+                fillColor: Colors.grey[50],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                counterText: '',
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: nicController,
+              keyboardType: TextInputType.number,
+              maxLength: 12,
+              decoration: InputDecoration(
+                labelText: 'Finder\'s NIC Number',
+                filled: true,
+                fillColor: Colors.grey[50],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                counterText: '',
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton(
+                onPressed: () {
+                  final phone = phoneController.text.trim();
+                  final nic = nicController.text.trim();
+                  
+                  if (phone.isEmpty || nic.isEmpty) {
+                    toastification.show(
+                      context: context,
+                      type: ToastificationType.error,
+                      style: ToastificationStyle.flat,
+                      title: const Text('Error'),
+                      description: const Text(
+                          'Please enter both phone number and NIC'),
+                      alignment: Alignment.topRight,
+                      autoCloseDuration: const Duration(seconds: 3),
+                    );
+                    return;
+                  }
+                  
+                  if (phone.length > 10) {
+                    toastification.show(
+                      context: context,
+                      type: ToastificationType.error,
+                      style: ToastificationStyle.flat,
+                      title: const Text('Error'),
+                      description: const Text('Phone number must be max 10 digits'),
+                      alignment: Alignment.topRight,
+                      autoCloseDuration: const Duration(seconds: 3),
+                    );
+                    return;
+                  }
+                  
+                  if (nic.length > 12) {
+                    toastification.show(
+                      context: context,
+                      type: ToastificationType.error,
+                      style: ToastificationStyle.flat,
+                      title: const Text('Error'),
+                      description: const Text('NIC must be max 12 digits'),
+                      alignment: Alignment.topRight,
+                      autoCloseDuration: const Duration(seconds: 3),
+                    );
+                    return;
+                  }
+                  
+                  Navigator.pop(context, {
+                    'phone': phone,
+                    'nic': nic,
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Mark as Found'),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Mark item as found and save finder info
+  Future<void> _markAsFound(BuildContext context) async {
+    final finderInfo = await _enterFinderInfo(context);
+    
+    if (finderInfo == null) return;
+
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        if (context.mounted) {
+          toastification.show(
+            context: context,
+            type: ToastificationType.error,
+            style: ToastificationStyle.flat,
+            title: const Text('Error'),
+            description: const Text('User not authenticated'),
+            alignment: Alignment.topRight,
+            autoCloseDuration: const Duration(seconds: 3),
+          );
+        }
+        return;
+      }
+
+      final data = item.data() as Map<String, dynamic>;
+      
+      // Update item status to found first
+      await item.reference.update({'status': 'found'});
+
+      // Then save to 'finders' collection
+      await FirebaseFirestore.instance.collection('finders').add({
+        'userId': currentUser.uid,
+        'itemId': item.id,
+        'itemName': data['name'] ?? 'Unknown Item',
+        'itemType': data['type'] ?? '',
+        'finderPhone': finderInfo['phone'],
+        'finderNic': finderInfo['nic'],
+        'markedAt': FieldValue.serverTimestamp(),
+      });
+
+      if (context.mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          style: ToastificationStyle.flat,
+          title: const Text('Success'),
+          description: const Text('Item marked as found!'),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 3),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          style: ToastificationStyle.flat,
+          title: const Text('Error'),
+          description: Text('Failed: ${e.toString()}'),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = widget.item['imageUrl'] ?? '';
-    final name = widget.item['name'] ?? 'Unknown Item';
-    final description = widget.item['description'] ?? '';
-    final phone = widget.item['phone'] ?? '';
-    final type = widget.item['type'] ?? '';
-    final timestamp = widget.item['timestamp'] as Timestamp?;
+    final data = item.data() as Map<String, dynamic>;
+    final imageUrl = data['imageUrl'] ?? '';
+    final name = data['name'] ?? 'Unknown Item';
+    final description = data['description'] ?? '';
+    final phone = data['phone'] ?? '';
+    final type = data['type'] ?? '';
+    final timestamp = data['timestamp'] as Timestamp?;
+    final status = data['status'] ?? '';
     final currentUser = FirebaseAuth.instance.currentUser;
     final isOwner =
-        currentUser != null && widget.item['userId'] == currentUser.uid;
+        currentUser != null && data['userId'] == currentUser.uid;
+    final isFound = status == 'found';
 
     String formattedDate = 'Unknown date';
     if (timestamp != null) {
@@ -231,6 +444,34 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
                 onPressed: () => Navigator.pop(context),
               ),
             ),
+            actions: isFound
+                ? [
+                    Container(
+                      margin: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.white, size: 20),
+                          SizedBox(width: 4),
+                          Text(
+                            'FOUND',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ]
+                : null,
             flexibleSpace: FlexibleSpaceBar(
               background: imageUrl.isNotEmpty
                   ? CachedNetworkImage(
@@ -275,13 +516,13 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: isOwnerTicked
-                          ? Colors.green
-                          : (type == 'Lost' ? Colors.grey[900] : Colors.black),
+                      color: type == 'Lost'
+                          ? Colors.grey[900]
+                          : Colors.black,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      isOwnerTicked ? 'FOUNDED' : type.toUpperCase(),
+                      type.toUpperCase(),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -382,51 +623,76 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
                       ),
                     ),
                   ],
-                  if (isOwner) ...[
+                  if (isOwner && !isFound) ...[
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: isOwnerTicked,
-                          onChanged: (val) async {
-                            if (val == true) {
-                              await _ownerVerification();
-                            }
-                          },
+                    SizedBox(
+                      width: double.infinity,
+                      height: 60,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _markAsFound(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
-                        const Text(
-                          'I am the owner of this item',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ],
+                        icon: const Icon(Icons.check_circle),
+                        label: const Text('Mark as Found'),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
                       height: 60,
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          final success = await _reauthenticateUser(
-                              context, currentUser!.email!);
-                          if (success) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    UpdateItemScreen(item: widget.item),
+                      child:OutlinedButton.icon(
+  onPressed: () async {
+    final verified = await _verifyPassword(context);
+    if (!verified) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UpdateItemScreen(item: item),
+      ),
+    );
+  },
+  icon: const Icon(Icons.edit),
+  label: const Text('Edit Details'),
+  style: OutlinedButton.styleFrom(
+    foregroundColor: Colors.black,
+    side: const BorderSide(color: Colors.black),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+  ),
+),
+
+                    ),],
+                  if (isOwner && isFound) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.green[50],
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.green[200]!),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.green[700]),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'This item has been marked as found',
+                              style: TextStyle(
+                                color: Colors.green[700],
+                                fontWeight: FontWeight.w600,
                               ),
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.edit),
-                        label: const Text('Edit Details'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.black,
-                          side: const BorderSide(color: Colors.black),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ],
