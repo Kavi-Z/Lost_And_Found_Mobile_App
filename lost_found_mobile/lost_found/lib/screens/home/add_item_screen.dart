@@ -114,8 +114,7 @@ Future<String> uploadImage() async {
 
     try {
       final imageUrl = await uploadImage();
-      
-      // Debug: Print imageUrl to verify upload was successful
+       
       print('Uploaded Image URL: $imageUrl');
 
       await FirebaseFirestore.instance.collection('items').add({
@@ -127,8 +126,7 @@ Future<String> uploadImage() async {
         'userId': user.uid,
         'timestamp': Timestamp.now(),
       });
-      
-      // Debug: Confirm data saved
+       
       print('Item saved to Firestore with imageUrl: $imageUrl');
 
       if (mounted) {

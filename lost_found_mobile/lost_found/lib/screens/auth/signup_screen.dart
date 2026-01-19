@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'login_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'package:toastification/toastification.dart';
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
 
@@ -54,78 +54,97 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
   }
 
   Future<void> _handleSignup() async {
-    if (!_formKey.currentState!.validate()) return;
+  if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+  setState(() => _isLoading = true);
 
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
+  final email = _emailController.text.trim();
+  final password = _passwordController.text;
 
-    try {
-      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
+  try {
+    final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+
+    final uid = cred.user?.uid;
+    if (uid != null) {
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'email': email,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+
+      toastification.show(
+        context: context,
+        type: ToastificationType.success,
+        style: ToastificationStyle.flat,
+        title: const Text("Success"),
+        description: const Text("Account created successfully!"),
+        alignment: Alignment.topRight,
+        autoCloseDuration: const Duration(seconds: 3),
+        primaryColor: Colors.green,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        borderRadius: BorderRadius.circular(12),
+        showProgressBar: true,
+        closeButtonShowType: CloseButtonShowType.onHover,
       );
 
-      final uid = cred.user?.uid;
-      if (uid != null) {
-        await FirebaseFirestore.instance.collection('users').doc(uid).set({
-          'email': email,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
+      // Small delay to let user see toast
+      await Future.delayed(const Duration(milliseconds: 500));
 
-      // Stop loading before showing success message
       if (mounted) {
-        setState(() => _isLoading = false);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text("Account created successfully!"),
-            backgroundColor: Colors.green[700],
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-
-        // Wait a moment for user to see the success message
-        await Future.delayed(const Duration(milliseconds: 500));
-        
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-          );
-        }
-      }
-    } on FirebaseAuthException catch (e) {
-      debugPrint('FirebaseAuthException code=${e.code} message=${e.message}');
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.message ?? e.code),
-            backgroundColor: Colors.grey[900],
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: Colors.grey[900],
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
         );
       }
     }
+  } on FirebaseAuthException catch (e) {
+    if (mounted) {
+      setState(() => _isLoading = false);
+      toastification.show(
+        context: context,
+        type: ToastificationType.error,
+        style: ToastificationStyle.flat,
+        title: const Text("Error"),
+        description: Text(e.message ?? e.code),
+        alignment: Alignment.topRight,
+        autoCloseDuration: const Duration(seconds: 3),
+        primaryColor: Colors.red,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        borderRadius: BorderRadius.circular(12),
+        showProgressBar: true,
+        closeButtonShowType: CloseButtonShowType.onHover,
+      );
+    }
+  } catch (e) {
+    if (mounted) {
+      setState(() => _isLoading = false);
+      toastification.show(
+        context: context,
+        type: ToastificationType.error,
+        style: ToastificationStyle.flat,
+        title: const Text("Error"),
+        description: Text(e.toString()),
+        alignment: Alignment.topRight,
+        autoCloseDuration: const Duration(seconds: 3),
+        primaryColor: Colors.red,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        borderRadius: BorderRadius.circular(12),
+        showProgressBar: true,
+        closeButtonShowType: CloseButtonShowType.onHover,
+      );
+    }
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
