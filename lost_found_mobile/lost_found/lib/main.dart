@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:toastification/toastification.dart';
-import 'screens/auth/login_screen.dart';
+
 import 'firebase_options.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/home/home_screen.dart';
+import 'screens/home/my_items.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +33,7 @@ class LostFoundApp extends StatelessWidget {
     return MaterialApp(
       title: 'Lost & Found',
       debugShowCheckedModeBanner: false,
+
       theme: ThemeData(
         brightness: Brightness.light,
         scaffoldBackgroundColor: Colors.white,
@@ -56,7 +60,14 @@ class LostFoundApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const LoginScreen(),
+
+      initialRoute: '/login',
+
+      routes: {
+        '/login': (context) => const LoginScreen(),
+        '/home': (context) => const HomeScreen(),
+        '/my-items': (context) => const MyItemsScreen(),
+      },
     );
   }
 }
