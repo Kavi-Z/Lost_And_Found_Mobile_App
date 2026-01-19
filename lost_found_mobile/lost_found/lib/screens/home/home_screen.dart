@@ -14,7 +14,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0; // Tracks current screen
+  int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +31,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- Task Bar ---
   Widget _buildTaskBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -84,7 +83,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- Home Screen Content ---
   Widget _buildHomeScreen() {
     return CustomScrollView(
       slivers: [
@@ -194,6 +192,9 @@ class _HomeScreenState extends State<HomeScreen> {
             itemCount: docs.length,
             itemBuilder: (context, index) {
               final item = docs[index];
+              final data = item.data() as Map<String, dynamic>;
+              final isFound = data['status'] == 'found';
+              
               return GestureDetector(
                 onTap: () {
                   Navigator.push(
@@ -209,29 +210,57 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: Colors.grey[200]!, width: 1.5),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                  child: Stack(
                     children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius:
-                              const BorderRadius.vertical(top: Radius.circular(14)),
-                          child: CachedNetworkImage(
-                            imageUrl: item['imageUrl'],
-                            fit: BoxFit.cover,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius:
+                                  const BorderRadius.vertical(top: Radius.circular(14)),
+                              child: CachedNetworkImage(
+                                imageUrl: data['imageUrl'] ?? '',
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Text(
+                              data['name'] ?? 'Unknown Item',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 14),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (isFound)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.check,
+                              color: Colors.white,
+                              size: 16,
+                            ),
                           ),
                         ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text(
-                          item['name'],
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 14),
-                        ),
-                      ),
                     ],
                   ),
                 ),
