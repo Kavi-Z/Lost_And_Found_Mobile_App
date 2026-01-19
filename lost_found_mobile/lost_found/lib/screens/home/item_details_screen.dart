@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'update_item.dart';
 
 class ItemDetailsScreen extends StatelessWidget {
   final QueryDocumentSnapshot item;
@@ -14,6 +16,55 @@ class ItemDetailsScreen extends StatelessWidget {
     }
   }
 
+  Future<bool> _reauthenticateUser(
+      BuildContext context, String email) async {
+    final TextEditingController passwordController =
+        TextEditingController();
+
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Confirm Password'),
+            content: TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Password',
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    final user = FirebaseAuth.instance.currentUser!;
+                    final credential = EmailAuthProvider.credential(
+                      email: email,
+                      password: passwordController.text.trim(),
+                    );
+                    await user.reauthenticateWithCredential(credential);
+                    Navigator.pop(context, true);
+                  } catch (_) {
+                    Navigator.pop(context, false);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Incorrect password'),
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Confirm'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final imageUrl = item['imageUrl'] ?? '';
@@ -22,7 +73,11 @@ class ItemDetailsScreen extends StatelessWidget {
     final phone = item['phone'] ?? '';
     final type = item['type'] ?? '';
     final timestamp = item['timestamp'] as Timestamp?;
-    
+
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final isOwner =
+        currentUser != null && item['userId'] == currentUser.uid;
+
     String formattedDate = 'Unknown date';
     if (timestamp != null) {
       final date = timestamp.toDate();
@@ -33,7 +88,6 @@ class ItemDetailsScreen extends StatelessWidget {
       backgroundColor: Colors.white,
       body: CustomScrollView(
         slivers: [
-          // App Bar with Image
           SliverAppBar(
             expandedHeight: 300,
             pinned: true,
@@ -61,7 +115,7 @@ class ItemDetailsScreen extends StatelessWidget {
                   ? CachedNetworkImage(
                       imageUrl: imageUrl,
                       fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
+                      placeholder: (_, __) => Container(
                         color: Colors.grey[100],
                         child: const Center(
                           child: CircularProgressIndicator(
@@ -70,50 +124,40 @@ class ItemDetailsScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-                      errorWidget: (context, url, error) {
-                        return Container(
-                          color: Colors.grey[100],
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.broken_image_outlined,
-                                  size: 64, color: Colors.grey[400]),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Image not available',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                      errorWidget: (_, __, ___) => Container(
+                        color: Colors.grey[100],
+                        child: const Icon(
+                          Icons.broken_image_outlined,
+                          size: 64,
+                          color: Colors.grey,
+                        ),
+                      ),
                     )
                   : Container(
                       color: Colors.grey[100],
-                      child: Icon(Icons.image_outlined,
-                          size: 80, color: Colors.grey[400]),
+                      child: const Icon(
+                        Icons.image_outlined,
+                        size: 80,
+                        color: Colors.grey,
+                      ),
                     ),
             ),
           ),
 
-          // Content
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Type Badge
+                  // TYPE BADGE
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
+                        horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: type == 'Lost' ? Colors.grey[900] : Colors.black,
+                      color: type == 'Lost'
+                          ? Colors.grey[900]
+                          : Colors.black,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -128,19 +172,18 @@ class ItemDetailsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  // Item Name
+                  // ITEM NAME
                   Text(
                     name,
                     style: const TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
                       height: 1.2,
                     ),
                   ),
                   const SizedBox(height: 8),
 
-                  // Date
+                  // DATE
                   Row(
                     children: [
                       Icon(Icons.calendar_today_outlined,
@@ -151,14 +194,13 @@ class ItemDetailsScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 32),
 
-                  // Description Section
+                  // DESCRIPTION
                   if (description.isNotEmpty) ...[
                     Text(
                       'DESCRIPTION',
@@ -166,34 +208,26 @@ class ItemDetailsScreen extends StatelessWidget {
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: Colors.grey[700],
-                        letterSpacing: 1.2,
                       ),
                     ),
                     const SizedBox(height: 12),
                     Container(
-                      width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: Colors.grey[50],
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.grey[200]!,
-                          width: 1.5,
-                        ),
+                        border:
+                            Border.all(color: Colors.grey[200]!),
                       ),
                       child: Text(
                         description,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          height: 1.6,
-                          color: Colors.black87,
-                        ),
+                        style: const TextStyle(height: 1.6),
                       ),
                     ),
                     const SizedBox(height: 32),
                   ],
 
-                  // Contact Section
+                  // CONTACT
                   if (phone.isNotEmpty) ...[
                     Text(
                       'CONTACT',
@@ -201,51 +235,28 @@ class ItemDetailsScreen extends StatelessWidget {
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: Colors.grey[700],
-                        letterSpacing: 1.2,
                       ),
                     ),
                     const SizedBox(height: 12),
                     Container(
-                      width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: Colors.grey[50],
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.grey[200]!,
-                          width: 1.5,
-                        ),
+                        border:
+                            Border.all(color: Colors.grey[200]!),
                       ),
                       child: Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.black,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.phone,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              phone,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
+                          const Icon(Icons.phone),
+                          const SizedBox(width: 12),
+                          Text(phone),
                         ],
                       ),
                     ),
                     const SizedBox(height: 24),
 
-                    // Call Button
+                    // CALL BUTTON
                     SizedBox(
                       width: double.infinity,
                       height: 60,
@@ -254,23 +265,56 @@ class ItemDetailsScreen extends StatelessWidget {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.black,
                           foregroundColor: Colors.white,
-                          elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius:
+                                BorderRadius.circular(16),
                           ),
                         ),
-                        icon: const Icon(Icons.phone, size: 22),
-                        label: const Text(
-                          'Call Now',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
+                        icon: const Icon(Icons.phone),
+                        label: const Text('Call Now'),
+                      ),
+                    ),
+                  ],
+
+                  // EDIT BUTTON (OWNER ONLY)
+                  if (isOwner) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 60,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final success =
+                              await _reauthenticateUser(
+                            context,
+                            currentUser!.email!,
+                          );
+
+                          if (success) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    UpdateItemScreen(item: item),
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.edit),
+                        label: const Text('Edit Details'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(16),
                           ),
+                          side:
+                              const BorderSide(color: Colors.black),
                         ),
                       ),
                     ),
                   ],
+
                   const SizedBox(height: 40),
                 ],
               ),
