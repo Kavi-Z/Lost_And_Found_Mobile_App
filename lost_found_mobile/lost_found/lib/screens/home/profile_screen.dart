@@ -164,75 +164,76 @@ class _ProfileSectionState extends State<ProfileSection> {
     );
   }
 
-  // ============ STATS SECTION ============
-  Widget _buildStatsSection() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('items')
-          .where('userId', isEqualTo: user?.uid)
-          .snapshots(),
-      builder: (context, snapshot) {
-        int totalItems = 0;
-        int resolvedItems = 0;
-        int lostItems = 0;
-        int foundItems = 0;
+ // ============ STATS SECTION ============  
+Widget _buildStatsSection() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('items')
+        .where('userId', isEqualTo: user?.uid)
+        .snapshots(),
+    builder: (context, snapshot) {
+      int totalItems = 0;
+      int resolvedItems = 0;
+      int lostItems = 0;
+      int foundItems = 0;
 
-        if (snapshot.hasData) {
-          final docs = snapshot.data!.docs;
-          totalItems = docs.length;
-          for (var doc in docs) {
-            final data = doc.data() as Map<String, dynamic>;
-            if (data['isResolved'] == true) resolvedItems++;
-            if (data['type'] == 'Lost') lostItems++;
-            if (data['type'] == 'Found') foundItems++;
-          }
+      if (snapshot.hasData) {
+        final docs = snapshot.data!.docs;
+        totalItems = docs.length;
+        for (var doc in docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          if (data['isResolved'] == true) resolvedItems++;
+          if (data['type'] == 'Lost') lostItems++;
+          if (data['type'] == 'Found') foundItems++;
         }
+      }
 
-        return Row(
-          children: [
-            _buildStatCard('Posted', '$totalItems', Icons.post_add),
-            const SizedBox(width: 12),
-            _buildStatCard('Resolved', '$resolvedItems', Icons.check_circle_outline),
-            const SizedBox(width: 12),
-            _buildStatCard('Lost', '$lostItems', Icons.search_off),
-            const SizedBox(width: 12),
-            _buildStatCard('Found', '$foundItems', Icons.search),
-          ],
-        );
-      },
-    );
-  }
+      return Row(
+        children: [
+          _buildStatCard('Posted', '$totalItems', Icons.post_add),
+          const SizedBox(width: 12),
+          _buildStatCard('Resolved', '$resolvedItems', Icons.check_circle_outline, bgColor: Colors.green[900], iconColor: Colors.green[300]),
+          const SizedBox(width: 12),
+          _buildStatCard('Lost', '$lostItems', Icons.search_off),
+          const SizedBox(width: 12),
+          _buildStatCard('Found', '$foundItems', Icons.search),
+        ],
+      );
+    },
+  );
+}
 
-  Widget _buildStatCard(String label, String value, IconData icon) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: Colors.grey[500], size: 20),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(color: Colors.grey[500], fontSize: 11),
-            ),
-          ],
-        ),
+Widget _buildStatCard(String label, String value, IconData icon, {Color? bgColor, Color? iconColor}) {
+  return Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        color: bgColor ?? Colors.grey[900],
+        borderRadius: BorderRadius.circular(12),
       ),
-    );
-  }
+      child: Column(
+        children: [
+          Icon(icon, color: iconColor ?? Colors.grey[500], size: 20),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(color: Colors.grey[500], fontSize: 11),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 
   // ============ MENU SECTION ============
   Widget _buildMenuSection() {
