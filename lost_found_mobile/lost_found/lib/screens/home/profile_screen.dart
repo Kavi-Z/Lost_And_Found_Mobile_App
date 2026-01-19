@@ -72,27 +72,23 @@ class _ProfileSectionState extends State<ProfileSection> {
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  // Profile Card
+                  
                   _buildProfileCard(),
                   const SizedBox(height: 24),
 
-                  // Stats
+                
                   _buildStatsSection(),
                   const SizedBox(height: 24),
-
-                  // Menu Options
+ 
                   _buildMenuSection(),
                   const SizedBox(height: 24),
-
-                  // Sign Out Button
+ 
                   _buildSignOutButton(),
                   const SizedBox(height: 16),
-
-                  // Delete Account
+ 
                   _buildDeleteAccountButton(),
                   const SizedBox(height: 32),
-
-                  // App Version
+ 
                   Text(
                     'Version 1.0.0',
                     style: TextStyle(color: Colors.grey[600], fontSize: 12),
@@ -114,7 +110,7 @@ class _ProfileSectionState extends State<ProfileSection> {
       ),
       child: Row(
         children: [
-          // Avatar
+          
           Container(
             width: 70,
             height: 70,
