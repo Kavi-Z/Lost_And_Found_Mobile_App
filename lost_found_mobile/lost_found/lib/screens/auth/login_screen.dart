@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../home/home_screen.dart';
 import 'signup_screen.dart';
-
+import 'package:toastification/toastification.dart';
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -47,52 +47,84 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     super.dispose();
   }
 
-  Future<void> login() async {
-    if (emailController.text.trim().isEmpty || passwordController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please fill in all fields'),
-          backgroundColor: Colors.grey[900],
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-      return;
-    }
-
-    setState(() => isLoading = true);
-
-    try {
-      final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
-
-      if (userCredential.user != null && mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
-      }
-    } on FirebaseAuthException catch (e) {
-      String message = 'An error occurred. Please try again.';
-      if (e.code == 'user-not-found') message = 'No user found for that email.';
-      if (e.code == 'wrong-password') message = 'Wrong password provided.';
-      if (e.code == 'invalid-email') message = 'Invalid email address.';
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: Colors.grey[900],
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => isLoading = false);
-    }
+Future<void> login() async {
+  if (emailController.text.trim().isEmpty || passwordController.text.trim().isEmpty) {
+    toastification.show(
+      context: context,
+      type: ToastificationType.error,
+      style: ToastificationStyle.flat,
+      title: const Text("Error"),
+      description: const Text("Please fill in all fields"),
+      alignment: Alignment.topRight,
+      autoCloseDuration: const Duration(seconds: 3),
+      primaryColor: Colors.red,
+      backgroundColor: Colors.white,
+      foregroundColor: Colors.black,
+      borderRadius: BorderRadius.circular(12),
+      showProgressBar: true,
+      closeButtonShowType: CloseButtonShowType.onHover,
+    );
+    return;
   }
+
+  setState(() => isLoading = true);
+
+  try {
+    final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: emailController.text.trim(),
+      password: passwordController.text.trim(),
+    );
+
+    if (userCredential.user != null && mounted) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.success,
+        style: ToastificationStyle.flat,
+        title: const Text("Success"),
+        description: const Text("Logged in successfully!"),
+        alignment: Alignment.topRight,
+        autoCloseDuration: const Duration(seconds: 3),
+        primaryColor: Colors.green,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        borderRadius: BorderRadius.circular(12),
+        showProgressBar: true,
+        closeButtonShowType: CloseButtonShowType.onHover,
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    }
+  } on FirebaseAuthException catch (e) {
+    String message = 'An error occurred. Please try again.';
+    if (e.code == 'user-not-found') message = 'No user found for that email.';
+    if (e.code == 'wrong-password') message = 'Wrong password provided.';
+    if (e.code == 'invalid-email') message = 'Invalid email address.';
+
+    if (mounted) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.error,
+        style: ToastificationStyle.flat,
+        title: const Text("Error"),
+        description: Text(message),
+        alignment: Alignment.topRight,
+        autoCloseDuration: const Duration(seconds: 3),
+        primaryColor: Colors.red,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        borderRadius: BorderRadius.circular(12),
+        showProgressBar: true,
+        closeButtonShowType: CloseButtonShowType.onHover,
+      );
+    }
+  } finally {
+    if (mounted) setState(() => isLoading = false);
+  }
+}
+
 
   @override
   Widget build(BuildContext context) {
